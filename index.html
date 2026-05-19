@@ -233,6 +233,7 @@
         const buf = await resp.arrayBuffer();
         const wb = XLSX.read(buf, { type: 'array' });
 
+        // Summary sheet: gene symbols & tissues
         const sheet = wb.Sheets['20260518_wtexpression_Summary'];
         if (sheet) {
           const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
@@ -246,18 +247,55 @@
               const s = row[idxSym];
               if (s) {
                 const sym = String(s).trim();
-                if (sym) {
-                  hintState.symbols.add(sym);
-                  hintState.geneSymbols.add(sym.toLowerCase());
-                }
+                hintState.symbols.add(sym);
+                hintState.geneSymbols.add(sym.toLowerCase());
               }
             }
             if (idxStruct >= 0) {
               const t = row[idxStruct];
-              if (t) {
-                const tissue = String(t).trim();
-                if (tissue) hintState.tissues.add(tissue);
-              }
+              if (t) hintState.tissues.add(String(t).trim());
+            }
+          }
+        }
+
+        // GO sheet: marker names (full gene names)
+        const sheetGo = wb.Sheets['20260519_GeneOntology'];
+        if (sheetGo) {
+          const rowsGo = XLSX.utils.sheet_to_json(sheetGo, { header: 1, defval: null });
+          const hGo = rowsGo[0].map(v => v == null ? '' : String(v).trim());
+          const idxGeneSym = hGo.indexOf('Gene Symbol');
+          const idxMarker = hGo.indexOf('Marker Name');
+          for (let i = 1; i < rowsGo.length; i++) {
+            const row = rowsGo[i];
+            if (!row) continue;
+            const sym = idxGeneSym >= 0 ? row[idxGeneSym] : null;
+            const name = idxMarker >= 0 ? row[idxMarker] : null;
+            if (sym && name) {
+              const symStr = String(sym).trim();
+              const nameStr = String(name).trim();
+              hintState.symbols.add(nameStr);
+              hintState.nameToSymbol[nameStr.toLowerCase()] = symStr;
+            }
+          }
+        }
+
+        // Orthology sheet: human ortholog symbols
+        const sheetOrth = wb.Sheets['20260519_gene2DiseaseOrthology'];
+        if (sheetOrth) {
+          const rowsO = XLSX.utils.sheet_to_json(sheetOrth, { header: 1, defval: null });
+          const hO = rowsO[0].map(v => v == null ? '' : String(v).trim());
+          const idxZSym = hO.indexOf('Zebrafish Gene Symbol');
+          const idxHumanSym = hO.indexOf('Human Ortholog Symbol');
+          for (let i = 1; i < rowsO.length; i++) {
+            const row = rowsO[i];
+            if (!row) continue;
+            const zSym = idxZSym >= 0 ? row[idxZSym] : null;
+            const hSym = idxHumanSym >= 0 ? row[idxHumanSym] : null;
+            if (zSym && hSym) {
+              const zStr = String(zSym).trim();
+              const hStr = String(hSym).trim();
+              hintState.symbols.add(hStr);
+              hintState.nameToSymbol[hStr.toLowerCase()] = zStr;
             }
           }
         }
@@ -275,7 +313,6 @@
         btnLoadHints.textContent = 'Suggestions loaded';
       });
     });
-
 
     function handleSubmit(e) {
       e.preventDefault();

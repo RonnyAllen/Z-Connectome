@@ -141,9 +141,7 @@
     .go-table tbody tr:nth-child(odd),.expr-table tbody tr:nth-child(odd){background:rgba(0,0,0,0.015);}
 
     .footer-inner{max-width:var(--content-width);margin:0 auto;padding:var(--space-4);border-top:1px solid var(--color-border);font-size:var(--text-xs);color:var(--color-text-faint);display:flex;flex-direction:column;gap:0.2rem;}
-  
-    .btn-block { display:block; width:100%; text-align:center; margin-top:0.75rem; }
-</style>
+  </style>
 </head>
 <body>
   <header>
@@ -212,7 +210,7 @@
           <div class="gene-field"><span class="gene-label">Gene Name</span><span id="modal-gene-name" class="gene-value"></span></div>
         </div>
         <div class="gene-actions">
-          <button type="button" class="pill-small" id="modal-link-expression" class="btn-primary btn-block">Expression matches in ZFIN</button>
+          <button type="button" class="pill-small" id="modal-link-expression">Expression matches in ZFIN</button>
         </div>
       </div>
 
@@ -225,6 +223,8 @@
             <thead>
               <tr>
                 <th>GO term</th>
+                <th>Aspect</th>
+                <th>Evidence</th>
                 <th>Definition (QuickGO)</th>
               </tr>
             </thead>
@@ -242,7 +242,7 @@
       </div>
 
       <div class="detail-section">
-        <div class="detail-title">Expressed in</div>
+        <div class="detail-title">Tissues (super-structures)</div>
         <ul id="modal-tissues" class="facet-list"></ul>
       </div>
 
@@ -356,37 +356,42 @@
 
     function toStr(v){ return v==null ? '' : String(v).trim(); }
 
-    function normaliseStageLabel(raw){
-      let v = toStr(raw);
-      if (!v) return '';
-      if (v.includes(':')) return v.split(':')[0].trim();
-      if (v.includes('(')) return v.split('(')[0].trim();
-      return v;
-    }
-
     function buildStageOrder(sheet){
       const rows = XLSX.utils.sheet_to_json(sheet,{header:1,defval:null});
-      const order = [];
-      const idxMap = new Map();
-      rows.forEach(row => {
-        if (!row) return;
-        row.forEach(cell => {
-          const name = normaliseStageLabel(cell);
-          if (!name) return;
-          if (!idxMap.has(name)) {
-            idxMap.set(name, order.length);
+      const order=[]; const idxMap=new Map();
+      rows.forEach(row=>{
+        row.forEach(cell=>{
+          const v=toStr(cell);
+          if(!v) return;
+          const name=v.split(':')[0].trim();
+          if(name && !idxMap.has(name)){
+            idxMap.set(name,order.length);
             order.push(name);
           }
         });
       });
-      state.stageOrder = order;
-      state.stageIndex = idxMap;
+      state.stageOrder=order;
+      state.stageIndex=idxMap;
       // populate stage filter
       elFilterStage.innerHTML = '<option value="">Any stage</option>' +
         order.map(s => `<option value="${s}">${s}</option>`).join('');
     }
 
-function normaliseExpression(sheet){
+    function rowsFromSheet(sheet){
+      const arr = XLSX.utils.sheet_to_json(sheet,{header:1,defval:null});
+      const header = (arr[0]||[]).map(toStr);
+      const out = [];
+      for(let r=1;r<arr.length;r++){
+        const row = arr[r];
+        if(!row || row.every(v => v==null || String(v).trim()==='')) continue;
+        const obj={};
+        header.forEach((h,i)=>{ obj[h||`col_${i}`] = row[i]; });
+        out.push(obj);
+      }
+      return out;
+    }
+
+    function normaliseExpression(sheet){
       const rows = rowsFromSheet(sheet);
       state.rowsExpression = rows.map(r => ({
         geneId: toStr(r['Gene ID']),
@@ -394,8 +399,8 @@ function normaliseExpression(sheet){
         fishName: toStr(r['Fish Name']),
         superStructure: toStr(r['Super Structure Name']),
         subStructure: toStr(r['Sub Structure Name']),
-        startStage: normaliseStageLabel(r['Start Stage']),
-        endStage: normaliseStageLabel(r['End Stage']),
+        startStage: toStr(r['Start Stage']),
+        endStage: toStr(r['End Stage']),
         assay: toStr(r['Assay']),
         assayMmoId: toStr(r['Assay MMO ID']),
         publicationId: toStr(r['Publication ID']),
@@ -485,56 +490,20 @@ function normaliseExpression(sheet){
         if(!resp.ok) throw new Error('HTTP '+resp.status);
         const buf = await resp.arrayBuffer();
         const wb = XLSX.read(buf,{type:'array'});
-
-        const stageSheet   = wb.Sheets['Stage Order'] || wb.Sheets['Stage_Order'] || wb.Sheets['StageOrder'];
-        const exprSheet    = wb.Sheets['20260518_zf_wt_expression'];
-        const summarySheet = wb.Sheets['20260518_wtexpression_Summary'];
-        const disSheet     = wb.Sheets['20260519_gene2DiseaseOrthology'];
-        const goSheet      = wb.Sheets['20260519_GeneOntology'];
-
-        if (stageSheet) {
-          buildStageOrder(stageSheet);
-        } else {
-          console.warn('Stage Order sheet not found');
-        }
-
-        if (!exprSheet) {
-          throw new Error('Expression sheet 20260518_zf_wt_expression not found');
-        }
-        normaliseExpression(exprSheet);
-
-        if (summarySheet) {
-          buildSummaryByGene(summarySheet);
-        } else {
-          console.warn('Summary sheet 20260518_wtexpression_Summary not found');
-        }
-
-        if (disSheet) {
-          normaliseDisease(disSheet);
-        } else {
-          console.warn('Disease orthology sheet 20260519_gene2DiseaseOrthology not found');
-        }
-
-        if (goSheet) {
-          normaliseGo(goSheet);
-        } else {
-          console.warn('GeneOntology sheet 20260519_GeneOntology not found');
-        }
-
+        buildStageOrder(wb.Sheets['Stage Order']);
+        normaliseExpression(wb.Sheets['20260518_zf_wt_expression']);
+        buildSummaryByGene(wb.Sheets['20260518_wtexpression_Summary']);
+        normaliseDisease(wb.Sheets['20260519_gene2DiseaseOrthology']);
+        normaliseGo(wb.Sheets['20260519_GeneOntology']);
         renderResults();
-
         if (focusParam === 'gene' && qParam) {
           const sym = qParam;
           const row = state.rowsExpression.find(r => r.geneSymbol === sym);
           if (row) openModal(sym, row);
         }
-      }catch(e){
-        console.error(e);
-        elNote.textContent='Failed to load Excel file.';
-      }
+      }catch(e){console.error(e); elNote.textContent='Failed to load Excel file.';}
     }
 
-    
     function matchesFilters(row){
       const q = elFilterGene.value.trim().toLowerCase();
       const s = elFilterStruct.value.trim().toLowerCase();
@@ -569,24 +538,13 @@ function normaliseExpression(sheet){
 
     function renderResults(){
       elBody.innerHTML='';
-      if(!state.rowsExpression.length){
-        elNote.textContent='No rows loaded yet.';
-        return;
-      }
-      const byGene = new Map();
-      state.rowsExpression.forEach(row => {
-        if (!matchesFilters(row)) return;
-        if (!byGene.has(row.geneSymbol)) byGene.set(row.geneSymbol, row);
-      });
-      const rows = Array.from(byGene.values());
-      if(!rows.length){
-        elNote.textContent='No rows match these filters.';
-        return;
-      }
+      if(!state.rowsExpression.length){elNote.textContent='No rows loaded yet.';return;}
+      const filtered = state.rowsExpression.filter(matchesFilters).slice(0,200);
+      if(!filtered.length){elNote.textContent='No rows match these filters.';return;}
       const frag=document.createDocumentFragment();
       const structFilter = elFilterStruct.value.trim().toLowerCase();
 
-      rows.slice(0,100).forEach(row=>{
+      filtered.forEach(row=>{
         const hasDisease=(state.geneToDisease.get(row.geneSymbol)||[]).length>0;
         const hasGo=(state.geneToGo.get(row.geneSymbol)||[]).length>0;
         const summaryList = state.summaryByGene.get(row.geneSymbol)||[];
@@ -621,12 +579,12 @@ function normaliseExpression(sheet){
           <div><div>${tissueLabel || row.superStructure || '–'}</div><div class="sub">${row.subStructure||''}</div></div>
           <div><div>${stageLabel||'–'}</div><div class="sub">summary sheet</div></div>
           <div><span class="badge-assay">${row.assay||'Assay'}</span></div>
-          <div><div class="sub">${row.publicationId||''}</div><div class="sub">${hasDisease?'&lt;span class=\"pill-small\"&gt;Disease&lt;/span&gt;':''} ${hasGo?'&lt;span class=\"pill-small\"&gt;GO&lt;/span&gt;':''}</div></div>`;
+          <div><div class="sub">${row.publicationId||''}</div><div class="sub">${hasDisease?'<span class="pill-small">Disease</span>':''} ${hasGo?'<span class="pill-small">GO</span>':''}</div></div>`;
         el.addEventListener('click',()=>openModal(row.geneSymbol,row));
         frag.appendChild(el);
       });
       elBody.appendChild(frag);
-      elNote.textContent = `Showing ${Math.min(rows.length,100)} of ${state.rowsExpression.length} genes with expression rows.`;
+      elNote.textContent = `Showing ${filtered.length} of ${state.rowsExpression.length} expression rows.`;
     }
 
     function openModal(geneSymbol, exampleRow){
@@ -644,7 +602,6 @@ function normaliseExpression(sheet){
         modalGeneId.href = `https://zfin.org/search?q=${encodeURIComponent(geneSymbol)}&fq=type%3Agene`;
       }
 
-      // GO table: term + QuickGO link only
       const goListRaw = state.geneToGo.get(geneSymbol)||[];
       const goById = new Map();
       goListRaw.forEach(g=>{
@@ -655,25 +612,22 @@ function normaliseExpression(sheet){
       modalGoBody.innerHTML = '';
       goById.forEach((list,key)=>{
         const first=list[0];
+        const aspect = (first.ontology||'').includes('Biological Process') ? 'Biological Process'
+                     : (first.ontology||'').includes('Molecular Function') ? 'Molecular Function'
+                     : (first.ontology||'').includes('Cellular Component') ? 'Cellular Component'
+                     : '';
+        const evid = Array.from(new Set(list.map(x=>x.evidence).filter(Boolean))).join(', ');
         const defUrl = first.goId ? `https://www.ebi.ac.uk/QuickGO/term/${first.goId}` : '';
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${first.goId||''}</td>
+          <td>${aspect}</td>
+          <td>${evid}</td>
           <td>${defUrl?`<a href="${defUrl}" target="_blank" rel="noopener noreferrer">View in QuickGO</a>`:''}</td>`;
         modalGoBody.appendChild(tr);
       });
 
-      // Detailed expression rows for this gene, sorted by start stage order
       const allExpr = state.rowsExpression.filter(r=>r.geneSymbol===geneSymbol);
-      const idx = s => state.stageIndex.has(s) ? state.stageIndex.get(s) : Number.MAX_SAFE_INTEGER;
-      allExpr.sort((a,b)=>{
-        const da = idx(a.startStage); const db = idx(b.startStage);
-        if (da !== db) return da - db;
-        const ea = idx(a.endStage); const eb = idx(b.endStage);
-        return ea - eb;
-      });
-
-      // Developmental span bar
       let minIdx=0,maxIdx=state.stageOrder.length-1;
       let sName='Zygote (1-cell)', eName='Adult';
       const exprSpanIndices=[];
@@ -698,7 +652,6 @@ function normaliseExpression(sheet){
       modalStageStart.textContent=sName;
       modalStageEnd.textContent=eName;
 
-      // Tissues list
       modalTissues.innerHTML='';
       Array.from(tissueSet).sort().forEach(t=>{
         const li=document.createElement('li');
@@ -706,7 +659,6 @@ function normaliseExpression(sheet){
         modalTissues.appendChild(li);
       });
 
-      // Human orthologs & diseases with em dash + not known
       const dList = state.geneToDisease.get(geneSymbol)||[];
       const humanSet=new Set();
       const diseaseMap=new Map();
@@ -727,14 +679,13 @@ function normaliseExpression(sheet){
       modalDiseaseBody.innerHTML='';
       const humanRow=document.createElement('div');
       humanRow.className='facet-item';
-      humanRow.innerHTML=`<span class="facet-label">Known human orthologs —</span><span>${humans.length?humans.join(', '):'not known'}</span>`;
+      humanRow.innerHTML=`<span class="facet-label">Known human orthologs</span><span>${humans.join(', ')||'—'}</span>`;
       modalDiseaseBody.appendChild(humanRow);
       const diseaseRow=document.createElement('div');
       diseaseRow.className='facet-item';
-      diseaseRow.innerHTML=`<span class="facet-label">Known diseases —</span><span>${diseaseLines.length?diseaseLines.join('; '):'not known'}</span>`;
+      diseaseRow.innerHTML=`<span class="facet-label">Known diseases</span><span>${diseaseLines.join('; ')||'—'}</span>`;
       modalDiseaseBody.appendChild(diseaseRow);
 
-      // Detailed developmental expression table
       modalExprBody.innerHTML='';
       allExpr.forEach(r=>{
         const tr=document.createElement('tr');
@@ -783,5 +734,3 @@ function normaliseExpression(sheet){
   </script>
 </body>
 </html>
-
-    
