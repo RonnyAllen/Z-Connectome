@@ -105,6 +105,41 @@
       display:flex;flex-wrap:wrap;gap:var(--space-4);margin-bottom:var(--space-6);align-items:flex-end;
       padding:var(--space-4);background:var(--color-surface);border:2px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);
     }
+    .filters-row-2{
+      display:flex;flex-wrap:wrap;gap:var(--space-4);margin-bottom:var(--space-6);align-items:flex-end;
+      padding:var(--space-4);background:var(--color-surface);border:2px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);
+    }
+    .tissue-tags{display:flex;flex-wrap:wrap;gap:0.35rem;margin-top:0.4rem;}
+    .tissue-tag{
+      display:inline-flex;align-items:center;gap:0.3rem;font-size:var(--text-xs);padding:0.25rem 0.6rem;
+      border-radius:var(--radius-full);font-weight:700;cursor:default;
+    }
+    .tissue-tag.include{
+      background:rgba(1,94,99,0.1);color:var(--color-accent);border:1.5px solid rgba(1,94,99,0.3);
+    }
+    [data-theme="dark"] .tissue-tag.include{background:rgba(93,178,191,0.15);border-color:rgba(93,178,191,0.3);}
+    .tissue-tag.exclude{
+      background:rgba(200,50,50,0.12);color:#c83232;border:1.5px solid rgba(200,50,50,0.3);
+    }
+    [data-theme="dark"] .tissue-tag.exclude{background:rgba(255,100,100,0.15);color:#ff8a8a;border-color:rgba(255,100,100,0.3);}
+    .tissue-tag-remove{
+      cursor:pointer;font-size:1rem;line-height:1;opacity:0.7;transition:opacity var(--transition-fast);
+      background:none;border:none;color:inherit;padding:0;margin:0;
+    }
+    .tissue-tag-remove:hover{opacity:1;}
+    .tissue-input-wrap{position:relative;width:100%;}
+    .tissue-suggest{
+      position:absolute;top:100%;left:0;right:0;z-index:40;
+      background:var(--color-surface);border:2px solid var(--color-border);border-radius:var(--radius-md);
+      box-shadow:var(--shadow-md);max-height:200px;overflow-y:auto;margin-top:0.25rem;display:none;
+    }
+    .tissue-suggest.open{display:block;}
+    .tissue-suggest-item{
+      padding:0.55rem 0.85rem;font-size:var(--text-sm);cursor:pointer;border-bottom:1px solid var(--color-border);
+      color:var(--color-text);font-weight:600;transition:background var(--transition-fast);
+    }
+    .tissue-suggest-item:last-child{border-bottom:none;}
+    .tissue-suggest-item:hover,.tissue-suggest-item.selected{background:var(--color-accent);color:var(--btn-primary-fg);}
     .field-label{font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.14em;color:var(--color-text-muted);margin-bottom:0.4rem;font-weight:700;}
     .input,select{width:100%;border-radius:var(--radius-md);border:2px solid var(--color-border);padding:0.65rem 0.85rem;font-size:var(--text-sm);background:var(--color-surface-2);color:var(--color-text);box-shadow:var(--shadow-sm);font-weight:600;}
     .input:focus,select:focus{outline:3px solid var(--color-accent);outline-offset:1px;}
@@ -115,6 +150,18 @@
     .table-header-row,.table-row{display:grid;grid-template-columns:1.2fr 1.8fr 1.2fr 0.9fr 0.9fr;gap:var(--space-4);padding:0.85rem 1.2rem;align-items:center;}
     .table-header-row{font-size:var(--text-xs);color:var(--color-text-muted);background:rgba(0,0,0,0.04);border-bottom:2px solid var(--color-border);font-weight:800;text-transform:uppercase;letter-spacing:0.08em;}
     [data-theme="dark"] .table-header-row {background:rgba(255,255,255,0.04);}
+    .sort-header{
+      cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;
+      background:none;border:none;padding:0;margin:0;font:inherit;color:inherit;
+      text-transform:inherit;letter-spacing:inherit;font-weight:inherit;
+      transition:color var(--transition-fast);
+      user-select:none;-webkit-user-select:none;
+    }
+    .sort-header:hover{color:var(--color-accent);}
+    .sort-header.active{color:var(--color-accent);}
+    .sort-arrow{font-size:0.7rem;opacity:0.4;transition:opacity var(--transition-fast),transform var(--transition-fast);}
+    .sort-header.active .sort-arrow{opacity:1;}
+    .sort-header.active.desc .sort-arrow{transform:rotate(180deg);}
     .table-body{max-height:600px;overflow-y:auto;font-size:var(--text-sm);}
     button, select, input, textarea {
       font-family: inherit;
@@ -286,13 +333,13 @@
         <div class="field-label">Gene / free text</div>
         <input id="filter-gene" class="input" type="search" placeholder="Filter by gene symbol/name..." />
       </div>
-      <div style="flex:0.6 1 160px;">
-        <div class="field-label">Stage</div>
-        <select id="filter-stage" class="input"></select>
+      <div style="flex:0.5 1 150px;">
+        <div class="field-label">Start stage (from)</div>
+        <select id="filter-stage-start" class="input"></select>
       </div>
-      <div style="flex:0.8 1 200px;">
-        <div class="field-label">Tissue</div>
-        <input id="filter-structure" class="input" type="search" placeholder="Filter by tissue..." />
+      <div style="flex:0.5 1 150px;">
+        <div class="field-label">End stage (to)</div>
+        <select id="filter-stage-end" class="input"></select>
       </div>
       <div style="flex:0.8 1 200px;">
         <div class="field-label">Fish line</div>
@@ -303,12 +350,31 @@
       </div>
     </section>
 
+    <section class="filters-row-2" aria-label="Tissue include/exclude filters">
+      <div style="flex:1 1 45%;">
+        <div class="field-label">Include tissues <span style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--color-text-faint);">(gene must be expressed in ALL listed tissues)</span></div>
+        <div class="tissue-input-wrap">
+          <input id="filter-include-tissue" class="input" type="search" placeholder="Type tissue name, press Enter to add..." autocomplete="off" />
+          <div id="include-tissue-suggest" class="tissue-suggest"></div>
+        </div>
+        <div id="include-tags-container" class="tissue-tags"></div>
+      </div>
+      <div style="flex:1 1 45%;">
+        <div class="field-label">Exclude tissues <span style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--color-text-faint);">(hide genes expressed in ANY listed tissue)</span></div>
+        <div class="tissue-input-wrap">
+          <input id="filter-exclude-tissue" class="input" type="search" placeholder="Type tissue name, press Enter to add..." autocomplete="off" />
+          <div id="exclude-tissue-suggest" class="tissue-suggest"></div>
+        </div>
+        <div id="exclude-tags-container" class="tissue-tags"></div>
+      </div>
+    </section>
+
     <section class="results-panel" aria-label="Expression table">
       <div class="table-shell">
         <div class="table-header-row" aria-hidden="true">
-          <div>Gene symbol &amp; name</div>
-          <div>Expressed in (Tissue)</div>
-          <div>Developmental span</div>
+          <div><button type="button" class="sort-header" data-sort="symbol">Gene symbol &amp; name <span class="sort-arrow">&#9650;</span></button></div>
+          <div><button type="button" class="sort-header" data-sort="tissues">Expressed in (Tissue) <span class="sort-arrow">&#9650;</span></button></div>
+          <div><button type="button" class="sort-header" data-sort="stages">Developmental span <span class="sort-arrow">&#9650;</span></button></div>
           <div>Assay types</div>
           <div>Annotations</div>
         </div>
@@ -470,7 +536,9 @@
       stageIndex: new Map(),
       summaryCatalog: {},
       filteredKeys: [],
-      activeGene: null
+      activeGene: null,
+      sortKey: null,   // 'symbol' | 'tissues' | 'stages' | null
+      sortDir: 'asc'   // 'asc' | 'desc'
     };
 
     const cache = {
@@ -482,10 +550,23 @@
     const elBody = document.getElementById('results-body');
     const elNote = document.getElementById('results-note');
     const elFilterGene = document.getElementById('filter-gene');
-    const elFilterStage = document.getElementById('filter-stage');
-    const elFilterStruct = document.getElementById('filter-structure');
+    const elFilterStageStart = document.getElementById('filter-stage-start');
+    const elFilterStageEnd = document.getElementById('filter-stage-end');
     const elFilterFish = document.getElementById('filter-fish');
     const elBtnClear = document.getElementById('btn-clear');
+
+    // Tissue include/exclude elements
+    const elIncludeTissueInput = document.getElementById('filter-include-tissue');
+    const elIncludeTissueSuggest = document.getElementById('include-tissue-suggest');
+    const elIncludeTagsContainer = document.getElementById('include-tags-container');
+    const elExcludeTissueInput = document.getElementById('filter-exclude-tissue');
+    const elExcludeTissueSuggest = document.getElementById('exclude-tissue-suggest');
+    const elExcludeTagsContainer = document.getElementById('exclude-tags-container');
+
+    // Tissue tag state
+    const includedTissues = [];
+    const excludedTissues = [];
+    var allTissuesList = []; // populated after database loads
 
     const modalBackdrop = document.getElementById('modal-backdrop');
     const modalClose = document.getElementById('modal-close');
@@ -529,17 +610,22 @@
           state.stageIndex.set(name, idx);
         });
 
-        // Set stage filter
-        elFilterStage.innerHTML = '<option value="">Any stage</option>' +
-          stageResp.map(s => `<option value="${s}">${s}</option>`).join('');
+        // Set stage start/end filter dropdowns
+        var stageOptions = '<option value="">Any</option>' +
+          stageResp.map(s => '<option value="' + s + '">' + s + '</option>').join('');
+        elFilterStageStart.innerHTML = stageOptions;
+        elFilterStageEnd.innerHTML = stageOptions;
 
         state.summaryCatalog = summaryResp;
 
-        // Set fish filter list
+        // Build tissue vocabulary and fish filter list
         const fishSet = new Set();
+        const tissueSet = new Set();
         Object.values(summaryResp).forEach(g => {
           (g.fish || []).forEach(f => { if (f) fishSet.add(f); });
+          (g.tissues || []).forEach(t => { if (t) tissueSet.add(t); });
         });
+        allTissuesList = Array.from(tissueSet).sort();
         const sortedFish = Array.from(fishSet).sort();
         elFilterFish.innerHTML = '<option value="">Any line</option>' +
           sortedFish.map(f => `<option value="${f}">${f}</option>`).join('');
@@ -551,7 +637,8 @@
         if (qLower) {
           const matchGene = Object.keys(state.summaryCatalog).find(k => k.toLowerCase() === qLower);
           if (matchGene) {
-            openModal(matchGene);
+            // Await and catch separately so a modal error doesn't mask database load success
+            openModal(matchGene).catch(err => console.error('openModal error:', err));
           }
         }
       } catch (e) {
@@ -560,34 +647,153 @@
       }
     }
 
-    // Check filters
+    // ── Tissue tag management (shared for include and exclude) ──
+    function addTissueTag(arr, text, renderFn) {
+      var clean = text.trim().toLowerCase();
+      if (!clean || arr.includes(clean)) return;
+      arr.push(clean);
+      renderFn();
+      renderResults();
+    }
+    function removeTissueTag(arr, text, renderFn) {
+      var idx = arr.indexOf(text);
+      if (idx !== -1) arr.splice(idx, 1);
+      renderFn();
+      renderResults();
+    }
+    function renderTissueTags(container, arr, cssClass, renderFn) {
+      container.innerHTML = '';
+      arr.forEach(function(tag) {
+        var span = document.createElement('span');
+        span.className = 'tissue-tag ' + cssClass;
+        span.textContent = tag;
+        var btn = document.createElement('button');
+        btn.className = 'tissue-tag-remove';
+        btn.type = 'button';
+        btn.textContent = '\u00d7';
+        btn.setAttribute('aria-label', 'Remove ' + tag);
+        btn.addEventListener('click', function() { removeTissueTag(arr, tag, renderFn); });
+        span.appendChild(btn);
+        container.appendChild(span);
+      });
+    }
+    function renderIncludeTags() { renderTissueTags(elIncludeTagsContainer, includedTissues, 'include', renderIncludeTags); }
+    function renderExcludeTags() { renderTissueTags(elExcludeTagsContainer, excludedTissues, 'exclude', renderExcludeTags); }
+
+    // ── Tissue suggestion dropdown ──
+    function showTissueSuggestions(inputEl, suggestEl, onSelect) {
+      var q = inputEl.value.trim().toLowerCase();
+      if (!q || !allTissuesList.length) { suggestEl.classList.remove('open'); return; }
+      var matches = allTissuesList.filter(function(t) { return t.toLowerCase().includes(q); }).slice(0, 10);
+      if (!matches.length) { suggestEl.classList.remove('open'); return; }
+      suggestEl.innerHTML = '';
+      matches.forEach(function(m) {
+        var div = document.createElement('div');
+        div.className = 'tissue-suggest-item';
+        div.textContent = m;
+        div.addEventListener('mousedown', function(e) {
+          e.preventDefault(); // prevent blur before click fires
+          onSelect(m);
+          inputEl.value = '';
+          suggestEl.classList.remove('open');
+        });
+        suggestEl.appendChild(div);
+      });
+      suggestEl.classList.add('open');
+    }
+
+    // Wire up include tissue input
+    elIncludeTissueInput.addEventListener('input', function() {
+      showTissueSuggestions(elIncludeTissueInput, elIncludeTissueSuggest, function(tissue) {
+        addTissueTag(includedTissues, tissue, renderIncludeTags);
+      });
+    });
+    elIncludeTissueInput.addEventListener('blur', function() {
+      setTimeout(function() { elIncludeTissueSuggest.classList.remove('open'); }, 150);
+    });
+    elIncludeTissueInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var val = elIncludeTissueInput.value;
+        val.split(',').forEach(function(part) { addTissueTag(includedTissues, part, renderIncludeTags); });
+        elIncludeTissueInput.value = '';
+        elIncludeTissueSuggest.classList.remove('open');
+      }
+    });
+
+    // Wire up exclude tissue input
+    elExcludeTissueInput.addEventListener('input', function() {
+      showTissueSuggestions(elExcludeTissueInput, elExcludeTissueSuggest, function(tissue) {
+        addTissueTag(excludedTissues, tissue, renderExcludeTags);
+      });
+    });
+    elExcludeTissueInput.addEventListener('blur', function() {
+      setTimeout(function() { elExcludeTissueSuggest.classList.remove('open'); }, 150);
+    });
+    elExcludeTissueInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var val = elExcludeTissueInput.value;
+        val.split(',').forEach(function(part) { addTissueTag(excludedTissues, part, renderExcludeTags); });
+        elExcludeTissueInput.value = '';
+        elExcludeTissueSuggest.classList.remove('open');
+      }
+    });
+
+    // Close suggestion dropdowns when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!elIncludeTissueInput.contains(e.target) && !elIncludeTissueSuggest.contains(e.target)) {
+        elIncludeTissueSuggest.classList.remove('open');
+      }
+      if (!elExcludeTissueInput.contains(e.target) && !elExcludeTissueSuggest.contains(e.target)) {
+        elExcludeTissueSuggest.classList.remove('open');
+      }
+    });
+
+    // ── Check filters ──
     function matchesFilters(g) {
-      const q = elFilterGene.value.trim().toLowerCase();
-      const t = elFilterStruct.value.trim().toLowerCase();
-      const f = elFilterFish.value;
-      const stage = elFilterStage.value;
+      var q = elFilterGene.value.trim().toLowerCase();
+      var f = elFilterFish.value;
+      var stageStart = elFilterStageStart.value;
+      var stageEnd = elFilterStageEnd.value;
 
       if (q) {
-        const matchSym = g.symbol.toLowerCase().includes(q);
-        const matchId = g.id.toLowerCase().includes(q);
-        const matchName = g.name.toLowerCase().includes(q);
+        var matchSym = g.symbol.toLowerCase().includes(q);
+        var matchId = g.id.toLowerCase().includes(q);
+        var matchName = g.name.toLowerCase().includes(q);
         if (!matchSym && !matchId && !matchName) return false;
-      }
-
-      if (t) {
-        const matchTissue = g.tissues.some(tName => tName.toLowerCase().includes(t));
-        if (!matchTissue) return false;
       }
 
       if (f) {
         if (!g.fish.includes(f)) return false;
       }
 
-      if (stage) {
-        const idxStage = state.stageIndex.get(stage);
-        if (idxStage !== undefined && !g.stages.includes(idxStage)) {
-          return false;
-        }
+      // Stage range filter
+      var startIdx = stageStart ? state.stageIndex.get(stageStart) : undefined;
+      var endIdx = stageEnd ? state.stageIndex.get(stageEnd) : undefined;
+      if (startIdx !== undefined || endIdx !== undefined) {
+        var lo = (startIdx !== undefined) ? startIdx : 0;
+        var hi = (endIdx !== undefined) ? endIdx : state.stageOrder.length - 1;
+        if (lo > hi) { var tmp = lo; lo = hi; hi = tmp; }
+        var hasOverlap = g.stages.some(function(si) { return si >= lo && si <= hi; });
+        if (!hasOverlap) return false;
+      }
+
+      // Include tissues filter: gene must be expressed in ALL listed tissues
+      if (includedTissues.length > 0) {
+        var allMatch = includedTissues.every(function(inc) {
+          return g.tissues.some(function(tName) { return tName.toLowerCase().includes(inc); });
+        });
+        if (!allMatch) return false;
+      }
+
+      // Exclude tissues filter: hide gene if expressed in ANY listed tissue
+      if (excludedTissues.length > 0) {
+        var hasExcluded = g.tissues.some(function(tName) {
+          var tLower = tName.toLowerCase();
+          return excludedTissues.some(function(ex) { return tLower.includes(ex); });
+        });
+        if (hasExcluded) return false;
       }
 
       return true;
@@ -608,18 +814,34 @@
         return;
       }
 
+      // Apply sorting
+      if (state.sortKey) {
+        var dir = state.sortDir === 'asc' ? 1 : -1;
+        filtered.sort(function(a, b) {
+          if (state.sortKey === 'symbol') {
+            return dir * a.symbol.localeCompare(b.symbol);
+          } else if (state.sortKey === 'tissues') {
+            return dir * (a.tissues.length - b.tissues.length);
+          } else if (state.sortKey === 'stages') {
+            return dir * (a.stages.length - b.stages.length);
+          }
+          return 0;
+        });
+      }
+
       // Limit results list length for optimal DOM performance
       const listLimit = filtered.slice(0, 150);
-      const structFilter = elFilterStruct.value.trim().toLowerCase();
 
       const frag = document.createDocumentFragment();
       listLimit.forEach(g => {
-        // Tissues prioritization: pull matched tissue to top of top three
+        // Tissues prioritization: pull matched (included) tissues to top of displayed list
         const tissueList = [...g.tissues];
-        if (structFilter) {
+        if (includedTissues.length) {
           tissueList.sort((a, b) => {
-            const aHas = a.toLowerCase().includes(structFilter);
-            const bHas = b.toLowerCase().includes(structFilter);
+            const aL = a.toLowerCase();
+            const bL = b.toLowerCase();
+            const aHas = includedTissues.some(inc => aL.includes(inc));
+            const bHas = includedTissues.some(inc => bL.includes(inc));
             if (aHas && !bHas) return -1;
             if (!aHas && bHas) return 1;
             return a.localeCompare(b);
@@ -667,24 +889,37 @@
       elNote.textContent = `Showing ${listLimit.length} of ${filtered.length} matching genes. (Total database catalog: ${allGenes.length} genes).`;
     }
 
-    // Lazy load split gene databases from prefix files
+    // Lazy load split gene databases from prefix files (each fetched independently)
     async function fetchSplitDetails(geneSymbol) {
       const symLower = geneSymbol.toLowerCase();
       const prefix = getPrefix(symLower);
-      
+
+      // Fetch each file independently so one failure doesn't blank all sections
       if (!cache.expression.has(prefix)) {
         try {
-          const [exprData, goData, disData] = await Promise.all([
-            fetch(`data/expression_${prefix}.json`).then(r => r.ok ? r.json() : {}),
-            fetch(`data/go_${prefix}.json`).then(r => r.ok ? r.json() : {}),
-            fetch(`data/disease_${prefix}.json`).then(r => r.ok ? r.json() : {})
-          ]);
-          cache.expression.set(prefix, exprData);
-          cache.go.set(prefix, goData);
-          cache.disease.set(prefix, disData);
+          const r = await fetch(`data/expression_${prefix}.json`);
+          cache.expression.set(prefix, r.ok ? await r.json() : {});
         } catch (e) {
-          console.error(`Failed to load split files for prefix ${prefix}`, e);
-          return { expression: [], go: null, disease: null };
+          console.error(`Failed to load expression_${prefix}.json`, e);
+          cache.expression.set(prefix, {});
+        }
+      }
+      if (!cache.go.has(prefix)) {
+        try {
+          const r = await fetch(`data/go_${prefix}.json`);
+          cache.go.set(prefix, r.ok ? await r.json() : {});
+        } catch (e) {
+          console.error(`Failed to load go_${prefix}.json`, e);
+          cache.go.set(prefix, {});
+        }
+      }
+      if (!cache.disease.has(prefix)) {
+        try {
+          const r = await fetch(`data/disease_${prefix}.json`);
+          cache.disease.set(prefix, r.ok ? await r.json() : {});
+        } catch (e) {
+          console.error(`Failed to load disease_${prefix}.json`, e);
+          cache.disease.set(prefix, {});
         }
       }
 
@@ -745,61 +980,141 @@
       modalBackdrop.setAttribute('aria-hidden', 'false');
 
       // Fetch lazy split files in background
-      const details = await fetchSplitDetails(symLower);
-
-      // Render orthology (Issue 7 & 10: Human orthologs & diseases with em-dashes and not known fallback)
-      if (details.disease) {
-        modalHumanOrth.textContent = details.disease.orth.length ? details.disease.orth.join(', ') : 'not known';
-        modalDiseases.textContent = details.disease.dis.length ? details.disease.dis.join('; ') : 'not known';
-      } else {
-        modalHumanOrth.textContent = 'not known';
-        modalDiseases.textContent = 'not known';
+      let details;
+      try {
+        details = await fetchSplitDetails(symLower);
+        console.log('fetchSplitDetails returned for', symLower, ':', {
+          expressionRows: details.expression ? details.expression.length : 0,
+          goTerms: details.go ? (details.go.go ? details.go.go.length : 0) : 0,
+          disease: details.disease ? 'present' : 'null'
+        });
+      } catch (fetchErr) {
+        console.error('fetchSplitDetails threw for', symLower, fetchErr);
+        details = { expression: [], go: null, disease: null };
       }
 
-      // Render GO annotations table (Issue 5 & 10: GO term ID, Aspect descriptive name, and QuickGO definition url)
-      modalGoBody.innerHTML = '';
-      if (details.go && details.go.go && details.go.go.length) {
-        details.go.go.forEach(g => {
-          const aspectName = g.o || '—';
-          const quickGoUrl = `https://www.ebi.ac.uk/QuickGO/term/${g.id}`;
-          
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td><a class="go-link" href="${quickGoUrl}" target="_blank" rel="noopener noreferrer">${g.id}</a></td>
-            <td><a class="go-link" href="${quickGoUrl}" target="_blank" rel="noopener noreferrer">View Term Meaning &rarr;</a></td>
-            <td>${aspectName}</td>
-          `;
-          modalGoBody.appendChild(tr);
-        });
-      } else {
-        modalGoBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No GO annotations in database</td></tr>';
+      // Render orthology
+      try {
+        if (details.disease && details.disease.orth) {
+          modalHumanOrth.textContent = details.disease.orth.length ? details.disease.orth.join(', ') : 'not known';
+        } else {
+          modalHumanOrth.textContent = 'not known';
+        }
+        if (details.disease && details.disease.dis) {
+          modalDiseases.textContent = details.disease.dis.length ? details.disease.dis.join('; ') : 'not known';
+        } else {
+          modalDiseases.textContent = 'not known';
+        }
+      } catch (orthErr) {
+        console.error('Error rendering orthology:', orthErr);
+        modalHumanOrth.textContent = 'error loading';
+        modalDiseases.textContent = 'error loading';
       }
 
-      // Render Detailed Expression table (Issue 8: chronologically sort by Start Stage order)
-      modalExprBody.innerHTML = '';
-      if (details.expression && details.expression.length) {
-        // Sort chronologically using global stage index
-        const sortedExpr = [...details.expression].sort((a, b) => {
-          const idxA = state.stageIndex.get(a.s) ?? 999;
-          const idxB = state.stageIndex.get(b.s) ?? 999;
-          return idxA - idxB;
-        });
+      // Render GO annotations table
+      try {
+        modalGoBody.innerHTML = '';
+        if (details.go && details.go.go && details.go.go.length) {
+          details.go.go.forEach(function(goItem) {
+            var aspectName = goItem.o || '\u2014';
+            var quickGoUrl = 'https://www.ebi.ac.uk/QuickGO/term/' + goItem.id;
+            var tr = document.createElement('tr');
+            var td1 = document.createElement('td');
+            var a1 = document.createElement('a');
+            a1.className = 'go-link';
+            a1.href = quickGoUrl;
+            a1.target = '_blank';
+            a1.rel = 'noopener noreferrer';
+            a1.textContent = goItem.id;
+            td1.appendChild(a1);
 
-        sortedExpr.forEach(r => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td><strong>${r.s}</strong></td>
-            <td>${r.e}</td>
-            <td>${r.t || '—'}</td>
-            <td>${r.sub || '—'}</td>
-            <td><span class="badge-assay">${r.a || '—'}</span></td>
-            <td>${r.f || '—'}</td>
-            <td><a href="https://zfin.org/${r.p}" target="_blank" rel="noopener noreferrer">${r.p || '—'}</a></td>
-          `;
-          modalExprBody.appendChild(tr);
-        });
-      } else {
-        modalExprBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No detailed wild-type expression records</td></tr>';
+            var td2 = document.createElement('td');
+            var a2 = document.createElement('a');
+            a2.className = 'go-link';
+            a2.href = quickGoUrl;
+            a2.target = '_blank';
+            a2.rel = 'noopener noreferrer';
+            a2.textContent = 'View Term Meaning \u2192';
+            td2.appendChild(a2);
+
+            var td3 = document.createElement('td');
+            td3.textContent = aspectName;
+
+            tr.appendChild(td1);
+            tr.appendChild(td2);
+            tr.appendChild(td3);
+            modalGoBody.appendChild(tr);
+          });
+        } else {
+          modalGoBody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No GO annotations in database</td></tr>';
+        }
+      } catch (goErr) {
+        console.error('Error rendering GO table:', goErr);
+        modalGoBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:red;">Error loading GO annotations</td></tr>';
+      }
+
+      // Render Detailed Expression table (chronologically sorted)
+      try {
+        modalExprBody.innerHTML = '';
+        if (details.expression && details.expression.length) {
+          var sortedExpr = details.expression.slice().sort(function(a, b) {
+            var idxA = state.stageIndex.has(a.s) ? state.stageIndex.get(a.s) : 999;
+            var idxB = state.stageIndex.has(b.s) ? state.stageIndex.get(b.s) : 999;
+            return idxA - idxB;
+          });
+
+          sortedExpr.forEach(function(r) {
+            var tr = document.createElement('tr');
+            var td1 = document.createElement('td');
+            var strong = document.createElement('strong');
+            strong.textContent = r.s || '\u2014';
+            td1.appendChild(strong);
+
+            var td2 = document.createElement('td');
+            td2.textContent = r.e || '\u2014';
+
+            var td3 = document.createElement('td');
+            td3.textContent = r.t || '\u2014';
+
+            var td4 = document.createElement('td');
+            td4.textContent = r.sub || '\u2014';
+
+            var td5 = document.createElement('td');
+            var badge = document.createElement('span');
+            badge.className = 'badge-assay';
+            badge.textContent = r.a || '\u2014';
+            td5.appendChild(badge);
+
+            var td6 = document.createElement('td');
+            td6.textContent = r.f || '\u2014';
+
+            var td7 = document.createElement('td');
+            if (r.p) {
+              var pubLink = document.createElement('a');
+              pubLink.href = 'https://zfin.org/' + r.p;
+              pubLink.target = '_blank';
+              pubLink.rel = 'noopener noreferrer';
+              pubLink.textContent = r.p;
+              td7.appendChild(pubLink);
+            } else {
+              td7.textContent = '\u2014';
+            }
+
+            tr.appendChild(td1);
+            tr.appendChild(td2);
+            tr.appendChild(td3);
+            tr.appendChild(td4);
+            tr.appendChild(td5);
+            tr.appendChild(td6);
+            tr.appendChild(td7);
+            modalExprBody.appendChild(tr);
+          });
+        } else {
+          modalExprBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No detailed wild-type expression records</td></tr>';
+        }
+      } catch (exprErr) {
+        console.error('Error rendering expression table:', exprErr);
+        modalExprBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:red;">Error loading expression data</td></tr>';
       }
     }
 
@@ -857,15 +1172,47 @@
 
     // Interactive filter updates
     elFilterGene.addEventListener('input', renderResults);
-    elFilterStage.addEventListener('change', renderResults);
-    elFilterStruct.addEventListener('input', renderResults);
+    elFilterStageStart.addEventListener('change', renderResults);
+    elFilterStageEnd.addEventListener('change', renderResults);
     elFilterFish.addEventListener('change', renderResults);
-    elBtnClear.addEventListener('click', () => {
+    elBtnClear.addEventListener('click', function() {
       elFilterGene.value = '';
-      elFilterStage.value = '';
-      elFilterStruct.value = '';
+      elFilterStageStart.value = '';
+      elFilterStageEnd.value = '';
       elFilterFish.value = '';
+      elIncludeTissueInput.value = '';
+      elExcludeTissueInput.value = '';
+      includedTissues.length = 0;
+      excludedTissues.length = 0;
+      renderIncludeTags();
+      renderExcludeTags();
       renderResults();
+    });
+
+    // Sort header click handler
+    document.querySelectorAll('.sort-header').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var key = btn.dataset.sort;
+        if (state.sortKey === key) {
+          // Toggle direction
+          state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          state.sortKey = key;
+          // Default first-click direction per column
+          if (key === 'symbol') {
+            state.sortDir = 'asc';  // A-Z first
+          } else {
+            state.sortDir = 'desc'; // High-to-low first for counts
+          }
+        }
+        // Update header visuals
+        document.querySelectorAll('.sort-header').forEach(function(h) {
+          h.classList.remove('active', 'desc');
+        });
+        btn.classList.add('active');
+        if (state.sortDir === 'desc') btn.classList.add('desc');
+        renderResults();
+      });
     });
 
     // Run loader
